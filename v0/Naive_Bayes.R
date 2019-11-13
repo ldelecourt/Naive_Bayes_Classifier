@@ -1,6 +1,6 @@
 # On charge les données
 #library(readxl)
-#data <- read_excel("/Users/d/Cours/SISE_M2/programmation_R/projet/heart.xls", sheet='dataset')
+data <- read_excel("/Users/d/Cours/SISE_M2/programmation_R/projet/heart.xls", sheet='dataset')
 #data <- read_excel("/Users/d/Cours/SISE_M2/programmation_R/projet/Census.xlsx", sheet='adult')
 
 # On prend que les variables qualitatives pour ce test
@@ -9,7 +9,7 @@
 # Création du modèle (fit())
 
 # On definit la variable expliquée (à prédire)
-Nom_Variable_A_Predire <- "sex"
+Nom_Variable_A_Predire <- "exang"
 
 # Numero de colonne de la variable expliquée
 for (i in 1:ncol(data)) {
@@ -29,6 +29,7 @@ for (i in 1:ncol(data)) {
     table_freq <- table(data[ ,i], data[ ,Num_Colonne_A_Predire])
     # Si une modalité à une fréquence == 0
     if (sum(table_freq == 0 ) > 0) { 
+      warning("Laplace smoothing had to used!!!")
       # Lissage de Laplace
       table_freq[which(table_freq == 0)] <- 1   # On ajoute 1 à la fréquence == 0
     }
