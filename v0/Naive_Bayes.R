@@ -1,15 +1,16 @@
 library(readxl)
 
-#  On charge les donn?es
-data <- read_excel("/Users/d/Cours/SISE_M2/programmation_R/projet/heart.xls", sheet='dataset')
+
+#  On charge les donnees
+data_ALL <- read_excel("/Users/d/Cours/SISE_M2/programmation_R/projet/Data/heart_2.xls", sheet='dataset')
 
 # On prend que les variables qualitatives pour ces donn?es (Census)
-#data <- read_excel("/Users/d/Cours/SISE_M2/programmation_R/projet/Census.xlsx", sheet='adult')
+#data <- read_excel("/Users/d/Cours/SISE_M2/programmation_R/projet/Data/Census.xlsx", sheet='adult')
 #data <- data[c(-1, -9)]
 
 
 
-# Cr?ation du mod?le (fit())
+# Creation du modele (fit())
 
 fit <- function(formula, data, laplace=1, ...) {
   # Nom de l'objet en sortie
@@ -22,58 +23,88 @@ fit <- function(formula, data, laplace=1, ...) {
   # On met toutes les colonnes en Factor
   df <- as.data.frame(lapply(df, factor))
   
-  # Probabilit?s des modalit?s de chaque variable explicative en fonction de la variable expliqu?e
-  list_proba_explicative <- c()
-  #NBAYES$table_proba_cond <- c()
-  
+  warning("Laplace smoothing at 1 is used by default !!!")
   for (i in 2:ncol(df)) {
-    # Table de fr?quence
+    # Table de frequence variable explicative
     table_freq <- table(df[ ,i], df[ ,1])
-    # Si une modalit? ? une fr?quence == 0
-    if (sum(table_freq == 0 ) > 0) { 
-      warning("Laplace smoothing had to be used for variable: '", colnames(df[i]) ,"' !!!\n")
-      # Lissage de Laplace
-      table_freq[which(table_freq == 0)] <- 1   # On ajoute 1 ? la fr?quence == 0
-    }
+      
+    # Lissage de Laplace
+    table_freq <-  table_freq + laplace   # On ajoute laplace=1 par défaut
+    
+    # Probabilite conditionnelle pour toutes les modalités de chaque variable
     proba_explicative <- prop.table(table_freq, 2)
-    
     NBAYES$table_proba_cond[[colnames(df[i])]] <- prop.table(table_freq, 2)
-    
-    #NBAYES$table_proba_cond[i] <- as.matrix(proba_explicative, rownames=rownames(data))
-    list_proba_explicative <- rbind(list_proba_explicative, proba_explicative)
-    # Modalit?s des variables explicatives en lignes
-    # Somme des proba des modalit?s d'une m?me variable = 1
-    # P(no/negative) + P(yes/negative) = 1
   }
   
-  # Probabilit?s des modalit?s de la variable expliqu?e
-  proba_Y <- prop.table(table(df[1]))
-  NBAYES$table_explicative <- proba_Y
+  # Probabilites A Priori
+  proba_Y <- prop.table(table(df[,1]) + 1)
+  NBAYES$prior <- proba_Y
   
-  # Matrice avec toutes les probabilit?s conditionnelles + probabilit?s variables expliqu?e
-  list_proba_all <- rbind(list_proba_explicative, proba_Y)
-    
-  # On impl?mente les instances de la classe NBAYES
-  NBAYES$list_proba_all <- list_proba_all
+  # On nomme l'objet NBAYES
   class(NBAYES) <- "NBAYES"
   return(NBAYES)
 }
 
 
-predict <- function(object_NBAYES, data) {       # ajouter une option type('class' ou 'posterior')
+predict <- function(object_NBAYES, data_test, type="both") {       # ajouter une option type('class' ou 'posterior')
   if (class(object_NBAYES) != "NBAYES") {
     stop("The object you gave is not a NBAYES object")
   }
-  # Pr?diction gr?ce au mod?le (predict())
-  proba_finale <- apply(object_NBAYES$list_proba_all, 2, prod)
-  # On normalise pour avoir une probabilit? 0 < ? < 1
-  proba_finale <- proba_finale / sum(proba_finale)
   
-  return(list(table_cond=object_NBAYES$table_proba_cond, table_explicative=object_NBAYES$table_explicative, proba_finale=proba_finale)) 
-  #proba_explicative=object_NBAYES$list_proba_all,
+  table_conditionnelle <- object_NBAYES$table_proba_cond
+  n_mod_predire <- length(rownames(table_conditionnelle[[1]]))
+  prior <- object_NBAYES$prior
+  nvar <- ncol(data_test)
+  variable_explicative <- colnames(table_conditionnelle[[1]])
+  pred <- c()
+  
+  for (k in 1:nrow(data_test)) {
+    numerateur <- c()
+    for (j in 1:n_mod_predire) {
+      P <- 1
+      for (i in 1:nvar) {
+        P <- P * table_conditionnelle[[i]][as.character(data_test[k,i]), j] 
+      }
+      numerateur[j] <- P * prior[j]
+    }
+    
+    evidence <- sum(numerateur)
+    
+    # posterior:
+    prediction <- numerateur / evidence
+    prediction <- rbind(prediction)
+    colnames(prediction) <- unique(variable_explicative)
+    # class:
+    class <- unique(variable_explicative)[which.max(prediction)]
+    prediction <- cbind.data.frame(prediction, class)
+    pred <- rbind(pred, prediction)
+  }
+  
+  pred <- as.data.frame(pred)
+  rownames(pred) <- 1:nrow(pred)
+  
+  # Formatage resultat
+  if (type == "class") {
+    pred <- pred["class"]
+  }
+  else if (type == "posterior"){
+    pred <- pred[-(ncol(pred))]
+  }
+  else {
+    return(list(prediction=pred)) 
+  }
+  
+  return(list(prediction=pred)) 
 }
 
 
-modele <- fit(exang ~ . , data)
-res <- predict(modele, data)
+###### TEST ######
+data_train <- data_ALL
+data_test <- data_ALL[sample(nrow(data_ALL), 5), 1:2]
+
+modele <- fit(disease ~ . , data_train)
+res <- predict(modele, data_test, type="posterior")
 print(res)
+
+
+
