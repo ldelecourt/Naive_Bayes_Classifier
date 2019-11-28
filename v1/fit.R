@@ -9,11 +9,12 @@ fit <- function(formula, data, laplace=1, ...) {
   # On extrait le dataframe de l'argument 'formula'
   formula <- as.formula(formula)
   df <- model.frame(formula = formula, data=data)
+  print(df)
   
   # On met toutes les colonnes en Factor
   #df <- as.data.frame(lapply(df, factor))
   
-  if (all(sapply(data_ALL, class) == "character") == TRUE) {
+  if (all(sapply(data, class) != "numeric") == TRUE) {
     # Table frequence variable a predire
     table_Y <- table(df[,1])
     
@@ -45,19 +46,16 @@ fit <- function(formula, data, laplace=1, ...) {
     return(NBAYES)
     
   } else {
-    # discretization des colonnes
-    # Do not work if the first column is a class factor
-    condition <- class(df[, 1]) == "factor"
-    if (condition) {
-      #print("La 1ere colonne est de type factor")
-      df_disc <- mdlp(df[-1])
-      df_disc$Disc.data <- cbind(df[, 1], df_disc$Disc.data)
-    } else {
-      #print("La 1ere colonne n'est pas de type factor")
-      df_disc <- mdlp(data)
+    # discretization des colonnes 1 par 1
+    condition1 <- length(which(sapply(df, class) == "numeric")) == ncol(df)
+    if (condition1 == TRUE) {
+      df_disc <- cbind(df, df[ncol(df)])
+      df_disc <- mdlp(df_disc)
+      df_disc$Disc.data <- df_disc$Disc.data[1:ncol(df_disc$Disc.data)-1]
+      print(df_disc)
     }
+    rm(condition1)
     
-    #print(df_disc)
     
     # On met toutes les colonnes en Factor
     #df <- as.data.frame(lapply(df, factor))

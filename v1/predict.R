@@ -15,7 +15,7 @@ predict <- function(object_NBAYES, data_test, type="both") {       # ajouter une
   variable_explicative <- colnames(table_conditionnelle[[1]])
   pred <- c()
   
-  if (all(sapply(data_ALL, class) == "character") == TRUE) {
+  if (all(sapply(data_test, class) != "numeric") == TRUE) {
     for (k in 1:nrow(data_test)) {
       numerateur <- c()
       for (j in 1:n_mod_predire) {
@@ -60,16 +60,27 @@ predict <- function(object_NBAYES, data_test, type="both") {       # ajouter une
     ###### ELSE ###### 
   } else {
     # discretization des colonnes ayant ete discretiser dans le fit()
+    print(data_test[5:10,])
     # la condition permet de ne pas discrétiser la variable a predire qui n'existe pas dans les donnees test
-    print(data_test)
+    # si celle-ci a te discretisee
     condition <- object_NBAYES$condition
-    condition <- condition[-which(names(condition) == object_NBAYES$var_a_predire)]
-    for (j in 1:length(condition)) {
-      print(names(condition[j]))
-      data_test[names(condition[j])] <- discretisation(data_test[names(condition[j])] , object_NBAYES$cuts[[j]])
+    var_a_predire <- object_NBAYES$var_a_predire
+    print(condition)
+    
+    if (sum(names(condition) == var_a_predire) == 1) {
+      condition <- condition[-which(names(condition) == var_a_predire)]
+      print(condition)
+      for (j in 1:length(condition)) {
+        data_test[names(condition[j])] <- discretisation(data_test[names(condition[j])] , object_NBAYES$cuts[[condition[j]]])
+      } 
+      } else {
+        for (j in 1:length(condition)) {
+          data_test[names(condition[j])] <- discretisation(data_test[names(condition[j])] , object_NBAYES$cuts[[condition[j]]])
+        }
     }
     
-    print(data_test)
+    print(data_test[5:10,])
+    print(object_NBAYES$cuts)
     
     # On calcul les prediction sur les données discrétisée
     for (k in 1:nrow(data_test)) {
