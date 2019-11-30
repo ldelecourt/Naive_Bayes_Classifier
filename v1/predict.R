@@ -3,7 +3,7 @@ source("functions.R")
 
 
 #### FONCTION PREDICTION POUR UN OBJET NBAYES ####
-predict <- function(object_NBAYES, data_test, type="both") {       # ajouter une option type('class' ou 'posterior')
+predict.NBAYES <- function(object_NBAYES, data_test, type="both") {       # ajouter une option type('class' ou 'posterior')
   if (class(object_NBAYES) != "NBAYES") {
     stop("The object you gave is not a NBAYES object")
   }
@@ -67,6 +67,9 @@ predict <- function(object_NBAYES, data_test, type="both") {       # ajouter une
     pred <- as.data.frame(pred)
     rownames(pred) <- 1:nrow(pred)
     
+    # We're almost done!
+    print("Prediction is done!")
+    
     # Formatage resultat
     if (type == "class") {
       pred <- pred["class"]
@@ -111,6 +114,9 @@ predict <- function(object_NBAYES, data_test, type="both") {       # ajouter une
     
     pred <- as.data.frame(pred)
     rownames(pred) <- 1:nrow(pred)
+    
+    # We're almost done!
+    print("Prediction is done!")
     
     # Formatage resultat
     if (type == "class") {

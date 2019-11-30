@@ -11,6 +11,7 @@ fit <- function(formula, data, laplace=1, ...) {
   # en supprimant les lignes comportant des NA
   formula <- as.formula(formula)
   df <- na.omit(model.frame(formula = formula, data=data))
+  
   # Nombre de colonne df
   n_var <- ncol(df)
   # variable a predire
