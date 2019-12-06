@@ -1,5 +1,5 @@
 library(discretization)
-library(MASS)
+#library(MASS)
 
 # Creation du modele (fit())
 
@@ -129,3 +129,5 @@ fit <- function(formula, data, laplace=1, ...) {
     return(NBAYES)
   }
 }
+
+

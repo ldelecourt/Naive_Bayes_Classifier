@@ -1,8 +1,8 @@
 # Libraries
 library(e1071)
-library(readxl)
 library(dplyr)
 library(DataExplorer)
+library(readxl)
 
 # Sources
 source("fit.R")
@@ -21,28 +21,30 @@ train <- sample_n(df, 100, replace=FALSE)
 
 # Test
 test <- sample_n(df, 50, replace=FALSE)
-Y <- "Species"
-test <- select(test, -Y)
+Y <- test[5]
+test <- test[-5]
 
 
 ####### NBAYES ####### 
 print(system.time({
   modele <- fit(Species ~ . , train)
-  Mon_Bail <- predict(modele, test, "posterior")
+  Mon_Bail <- predict(modele, test, "class")
 }))
 
 
 ####### PACKAGE ####### 
 print(system.time({
   modele <- naiveBayes(Species ~ . , train, laplace=1)
-  package <- predict(modele, test, "raw")
+  package <- predict(modele, test, "class")
 }))
 
 
 ####### COMPARAISON ####### 
 diff <- Mon_Bail$prediction - package
 moy <- lapply(diff, mean)
-
+# Matrice de confusion
+t1 <- table(Mon_Bail$prediction[,1], Y[,1])
+t2 <- table(package, Y[[1]])
 
 
 
@@ -241,4 +243,173 @@ moy <- lapply(diff, mean)
 
 
 t2 <- table(package, df[91:142, 1])
+
+
+
+##################################################### Heart num sex ##################################################### 
+
+####### DATA ####### 
+df <- read.csv("/Users/d/Cours/SISE_M2/Data_Sets/heart_num.csv", header=TRUE, sep=",")
+introduce(df)
+
+# Train
+train <- df[1:200, ]
+# Test
+test <- df[201:303, ]
+Y <- test[1]
+test <- test[-1]
+
+age_disc <- mdlp(cbind(df[1:200, 1], df[1:200, 1]))$Disc.data
+age_disc[-2]
+train[1] <- age_disc[,1]
+
+####### NBAYES ####### 
+print(system.time({
+  modele <- fit(age ~ . , train)
+  Mon_Bail <- predict(modele, test, "class")
+}))
+
+
+####### PACKAGE ####### 
+print(system.time({
+  modele <- naiveBayes(age ~ . , train, laplace=1)
+  package <- predict(modele, test, "class")
+}))
+
+
+####### COMPARAISON ####### 
+diff <- Mon_Bail$prediction - as.data.frame(package)
+moy <- lapply(diff, mean)
+# Matrice de confusion
+t1 <- table(Mon_Bail$prediction[,1], Y[,1])
+t2 <- table(package, Y[[1]])
+
+
+
+
+
+##################################################### plalnts ##################################################### 
+
+####### DATA ####### 
+df <- read.csv("/Users/d/Cours/SISE_M2/Data_Sets/adult.data", header=FALSE, sep=",")
+introduce(df)
+
+# Mix df
+df_mix <- sample_n(df, 10000, replace=FALSE)
+df_mix <- select(df_mix, -V1, -V3, -V5, -V11, -V12, -V13)
+# Train
+train <- df_mix[1:7000, ]
+# Test
+test <- df_mix[7001:10000, ]
+Y <- test[5]
+test <- test[-5]
+
+
+####### NBAYES ####### 
+print(system.time({
+  modele <- fit(V8 ~ . , train)
+  Mon_Bail <- predict(modele, test, "class")
+}))
+
+
+####### PACKAGE ####### 
+print(system.time({
+  modele <- naiveBayes(V8 ~ . , train, laplace=1)
+  package <- predict(modele, test, "class")
+}))
+
+
+####### COMPARAISON ####### 
+diff <- Mon_Bail$prediction - as.data.frame(package)
+moy <- lapply(diff, mean)
+# Matrice de confusion
+t1 <- table(Mon_Bail$prediction[,1], Y[,1])
+t2 <- table(package, Y[[1]])
+
+
+##################################################### body size ################################################
+
+####### DATA ####### 
+df <- read_excel("/Users/d/Cours/SISE_M2/Data_Sets/body_dataset.xlsx", sheet=1)
+introduce(df)
+
+# Mix df
+df_mix <- sample_n(df, 7000, replace=FALSE)
+# Discretisation de poids
+poids <- mdlp(cbind(df_mix$poids, df_mix$poids))$Disc.data
+colnames(poids) <- c("poids1", "poids2")
+poids<- as.data.frame(poids)
+df_mix_poids_disc <- df_mix[-13]
+df_mix_poids_disc <- cbind(df_mix_poids_disc, poids$poids1)
+colnames(df_mix_poids_disc) <- c("epaule", "mollet", "nombril", "hanche", "poignet", "cuisse", "taille", "biceps", "avantbras",
+                                 "genou", "poitrine", "cheville", "poidss")
+
+# Train
+train <- df_mix_poids_disc[1:2000, ]
+# Test
+test <- df_mix_poids_disc[2001:3000, ]
+Y <- test[13]
+test <- test[-13]
+
+
+####### NBAYES ####### 
+print(system.time({
+  modele <- fit(poidss ~ . , train)
+  Mon_Bail <- predict(modele, test, "class")
+}))
+
+library(profvis)
+profvis({
+  modele <- fit(poidss ~ . , train)
+  Mon_Bail <- predict(modele, test, "class")
+})
+
+
+####### PACKAGE ####### 
+print(system.time({
+  modele <- naiveBayes(poidss ~ . , train, laplace=1)
+  package <- predict(modele, test, "class")
+}))
+
+
+####### COMPARAISON ####### 
+diff <- Mon_Bail$prediction - as.data.frame(package)
+moy <- lapply(diff, mean)
+# Matrice de confusion
+t1 <- table(Mon_Bail$prediction[,1], Y[,1])
+t2 <- table(package, Y[[1]])
+
+
+
+##################################################### heart ##################################################### 
+
+####### DATA ####### 
+df <- read_excel("/Users/d/Cours/SISE_M2/programmation_R/projet/Data/heart_2.xls", sheet='dataset')
+
+# Train
+train <- sample_n(df, 190, replace=FALSE)
+
+# Test
+test <- sample_n(df, 90, replace=FALSE)
+Y <- test[3]
+test <- test[-3]
+
+####### NBAYES ####### 
+print(system.time({
+  modele <- fit(disease ~ . , train)
+  Mon_Bail <- predict(modele, test, "class")
+}))
+
+
+####### PACKAGE ####### 
+print(system.time({
+  modele <- naiveBayes(disease ~ . , train, laplace=1)
+  package <- predict(modele, test, "class")
+}))
+
+
+# Matrice de confusion
+t1 <- table(Mon_Bail$prediction[,1], Y[[1]])
+t2 <- table(package, Y[[1]])
+
 
