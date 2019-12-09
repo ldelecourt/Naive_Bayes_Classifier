@@ -26,10 +26,9 @@ test <- test[-5]
 
 
 ####### NBAYES ####### 
-print(system.time({
-  modele <- fit(Species ~ . , train)
-  Mon_Bail <- predict(modele, test, "class")
-}))
+print(system.time({modele <- fit(Species ~ . , train,  parallel=TRUE)}))
+print(system.time({Mon_Bail <- predict(modele, test, "class", parallel=FALSE)}))
+
 
 
 ####### PACKAGE ####### 
@@ -76,7 +75,7 @@ test <- select(test, -Y)
 
 ####### NBAYES ####### 
 print(system.time({
-  modele <- fit(Nationality ~ . , train)
+  modele <- fit(Nationality ~ . , train, parallel=TRUE)
   Mon_Bail <- predict(modele, test, "posterior")
 }))
 
@@ -353,23 +352,22 @@ test <- test[-13]
 
 
 ####### NBAYES ####### 
-print(system.time({
-  modele <- fit(poidss ~ . , train)
-  Mon_Bail <- predict(modele, test, "class")
-}))
+print(system.time({modele <- fit(poidss ~ . , train, parallel=TRUE)}))
+print(system.time({Mon_Bail <- predict(modele, test, "class", parallel=FALSE)}))
+
+
+modele <- fit(poidss ~ . , train, parallel=TRUE)
 
 library(profvis)
 profvis({
-  modele <- fit(poidss ~ . , train)
+  modele <- fit(poidss ~ . , train, parallel=TRUE)
   Mon_Bail <- predict(modele, test, "class")
 })
 
 
 ####### PACKAGE ####### 
-print(system.time({
-  modele <- naiveBayes(poidss ~ . , train, laplace=1)
-  package <- predict(modele, test, "class")
-}))
+print(system.time({modele <- naiveBayes(poidss ~ . , train, laplace=1)}))
+print(system.time({package <- predict(modele, test, "class")}))
 
 
 ####### COMPARAISON ####### 
@@ -377,7 +375,7 @@ diff <- Mon_Bail$prediction - as.data.frame(package)
 moy <- lapply(diff, mean)
 # Matrice de confusion
 t1 <- table(Mon_Bail$prediction[,1], Y[,1])
-t2 <- table(package, Y[[1]])
+tt2 <- table(package, Y[[1]])
 
 
 
@@ -395,16 +393,14 @@ Y <- test[3]
 test <- test[-3]
 
 ####### NBAYES ####### 
-print(system.time({
-  modele <- fit(disease ~ . , train)
-  Mon_Bail <- predict(modele, test, "class")
-}))
+print(system.time({modele <- fit(disease ~ . , train, parallel=TRUE)}))
+print(system.time({Mon_Bail <- predict(modele, test, "class", parallel=FALSE)}))
 
 
 ####### PACKAGE ####### 
 print(system.time({
   modele <- naiveBayes(disease ~ . , train, laplace=1)
-  package <- predict(modele, test, "class")
+  package <- predict(modele, test, "raw")
 }))
 
 

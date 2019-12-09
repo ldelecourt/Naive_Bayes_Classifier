@@ -7,7 +7,7 @@ source("functions.R")
 source("parall.R")
 
 #### FONCTION PREDICTION POUR UN OBJET NBAYES ####
-predict.NBAYES <- function(object_NBAYES, data_test, type="both") {       # ajouter une option type('class' ou 'posterior')
+predict.NBAYES <- function(object_NBAYES, data_test, type="both", parallel=FALSE) {       # ajouter une option type('class' ou 'posterior')
   if (class(object_NBAYES) != "NBAYES") {
     stop("The object you gave is not a NBAYES object")
   }
@@ -29,41 +29,70 @@ predict.NBAYES <- function(object_NBAYES, data_test, type="both") {       # ajou
     condition <- object_NBAYES$condition
     var_a_predire <- object_NBAYES$var_a_predire
     
-    # Initialisation de la parallelisation
-    nb_cores <- detectCores()
-    cl <- makeCluster(nb_cores)
-    registerDoParallel(cl)
     
-    if (sum(names(condition) == var_a_predire) == 1) {
-      condition <- condition[-which(names(condition) == var_a_predire)]
+    if (parallel==TRUE) {
+      # Initialisation de la parallelisation
+      nb_cores <- detectCores()
+      cl <- makeCluster(nb_cores)
+      registerDoParallel(cl)
+      
+      if (sum(names(condition) == var_a_predire) == 1) {
+        condition <- condition[-which(names(condition) == var_a_predire)]
+        
+        
+        #for (j in 1:length(condition)) {
+        #  data_test[names(condition[j])] <- discretisation(data_test[names(condition[j])] , object_NBAYES$cuts[[condition[j]]])
+        #} 
+        
+        data_test <- foreach(i=1:length(condition), .combine=cbind, .export=c("discretisation")) %dopar%
+          discretisation(data_test[names(condition[i])] , object_NBAYES$cuts[[condition[i]]])
+        stopCluster(cl)
+        
+      } else {
+        
+        #for (j in 1:length(condition)) {
+        #  data_test[names(condition[j])] <- discretisation(data_test[names(condition[j])] , object_NBAYES$cuts[[condition[j]]])
+        #}
+        
+        data_test <- foreach(i=1:length(condition), .combine=cbind, .export=c("discretisation")) %dopar%
+          discretisation(data_test[names(condition[i])] , object_NBAYES$cuts[[condition[i]]])
+        stopCluster(cl)
+      }
       
       
-      #for (j in 1:length(condition)) {
-      #  data_test[names(condition[j])] <- discretisation(data_test[names(condition[j])] , object_NBAYES$cuts[[condition[j]]])
-      #} 
-      
-      data_test <- foreach(i=1:length(condition), .combine=cbind, .export=c("discretisation")) %dopar%
-        discretisation(data_test[names(condition[i])] , object_NBAYES$cuts[[condition[i]]])
+      # On calcul les prediction sur les données discrétisée
+      ###### PARALLELISATION ######
+      cl <- makeCluster(nb_cores)
+      registerDoParallel(cl)
+      pred <- foreach(i=1:nrow(test), .combine=rbind, .export=c("proba_1_obs")) %dopar% proba_1_obs(data_test[i,], object_NBAYES)
       stopCluster(cl)
       
-    } else {
       
-      #for (j in 1:length(condition)) {
-      #  data_test[names(condition[j])] <- discretisation(data_test[names(condition[j])] , object_NBAYES$cuts[[condition[j]]])
-      #}
       
-      data_test <- foreach(i=1:length(condition), .combine=cbind, .export=c("discretisation")) %dopar%
-        discretisation(data_test[names(condition[i])] , object_NBAYES$cuts[[condition[i]]])
+    } else if (parallel==FALSE) {
+      if (sum(names(condition) == var_a_predire) == 1) {
+        condition <- condition[-which(names(condition) == var_a_predire)]
+        
+        for (j in 1:length(condition)) {
+          data_test[names(condition[j])] <- discretisation(data_test[names(condition[j])] , object_NBAYES$cuts[[condition[j]]])
+        } 
+        
+      } else {
+        for (j in 1:length(condition)) {
+          data_test[names(condition[j])] <- discretisation(data_test[names(condition[j])] , object_NBAYES$cuts[[condition[j]]])
+        }
+      }
+      
+      # On calcul les prediction sur les données discrétisée
+      ###### PARALLELISATION ######
+      nb_cores <- detectCores()
+      cl <- makeCluster(nb_cores)
+      registerDoParallel(cl)
+      pred <- foreach(i=1:nrow(test), .combine=rbind, .export=c("proba_1_obs")) %dopar% proba_1_obs(data_test[i,], object_NBAYES)
       stopCluster(cl)
     }
     
     
-    # On calcul les prediction sur les données discrétisée
-    ###### PARALLELISATION ######
-    cl <- makeCluster(nb_cores)
-    registerDoParallel(cl)
-    pred <- foreach(i=1:nrow(test), .combine=rbind, .export=c("proba_1_obs")) %dopar% proba_1_obs(data_test[i,], object_NBAYES)
-    stopCluster(cl)
     
     evidence_par <- seq(1, nrow(pred))
     for (i in 1:nrow(pred)) {
@@ -84,11 +113,18 @@ predict.NBAYES <- function(object_NBAYES, data_test, type="both") {       # ajou
     #  classe[i] <- colnames(pred)[which.max(pred[i,])]
     #}
     
-    cl <- makeCluster(nb_cores)
-    registerDoParallel(cl)
-    classe <- foreach(i=1:nrow(pred), .combine=c, .export=c("proba_1_obs")) %dopar%
-      colnames(pred)[which.max(pred[i,])]
-    stopCluster(cl)
+    if (parallel==TRUE) {
+      cl <- makeCluster(nb_cores)
+      registerDoParallel(cl)
+      classe <- foreach(i=1:nrow(pred), .combine=c) %dopar%
+        colnames(pred)[which.max(pred[i,])]
+      stopCluster(cl)
+    } else if (parallel==FALSE) {
+      for (i in 1:nrow(pred)) {
+        classe[i] <- colnames(pred)[which.max(pred[i,])]
+      }
+    }
+    
     
     # Concatene les deux
     pred <- cbind.data.frame(pred, classe)
@@ -112,10 +148,11 @@ predict.NBAYES <- function(object_NBAYES, data_test, type="both") {       # ajou
   
   ###### ELSE ###### Pas besoin de discretiser
   else {
-    # On calcul les prediction sur les données discrétisée
+    # On calcul les prediction sur les données (qualitatives)
     ###### PARALLELISATION ######
     nb_cores <- detectCores()
     cl <- makeCluster(nb_cores)
+    
     registerDoParallel(cl)
     pred <- foreach(i=1:nrow(test), .combine=rbind, .export=c("proba_1_obs")) %dopar% proba_1_obs(data_test[i,], object_NBAYES)
     stopCluster(cl)
@@ -136,11 +173,17 @@ predict.NBAYES <- function(object_NBAYES, data_test, type="both") {       # ajou
     # creation de la colonne "class"
     classe <- seq(1, nrow(pred))
     
-    cl <- makeCluster(nb_cores)
-    registerDoParallel(cl)
-    classe <- foreach(i=1:nrow(pred), .combine=c, .export=c("proba_1_obs")) %dopar%
-      colnames(pred)[which.max(pred[i,])]
-    stopCluster(cl)
+    if (parallel==TRUE) {
+      cl <- makeCluster(nb_cores)
+      registerDoParallel(cl)
+      classe <- foreach(i=1:nrow(pred), .combine=c) %dopar%
+        colnames(pred)[which.max(pred[i,])]
+      stopCluster(cl)
+    } else if (parallel==FALSE) {
+      for (i in 1:nrow(pred)) {
+        classe[i] <- colnames(pred)[which.max(pred[i,])]
+      }
+    }
     
     # Concatene les deux
     pred <- cbind.data.frame(pred, classe)
@@ -159,7 +202,7 @@ predict.NBAYES <- function(object_NBAYES, data_test, type="both") {       # ajou
       return(list(prediction=pred)) 
     }
     
-    return(list(prediction=pred)) 
+    return(list(prediction=pred))
   }
 }
 

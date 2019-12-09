@@ -1,9 +1,10 @@
 library(discretization)
-#library(MASS)
+
+source("mdlp_para.R")
 
 # Creation du modele (fit())
 
-fit <- function(formula, data, laplace=1, ...) {
+fit <- function(formula, data, laplace=1, parallel=FALSE, ...) {
   # Nom de l'objet en sortie
   NBAYES <- list()
   
@@ -82,15 +83,41 @@ fit <- function(formula, data, laplace=1, ...) {
     
     #### ELSE ####
   } else {
-    # Discretisaion des variables numeric
-    quanti <- cbind(quanti, Y)
-    df_disc <- mdlp(quanti)
+    if (parallel==FALSE) {
+      # Discretisaion des variables numeric
+      quanti <- cbind(quanti, Y)
+      df_disc <- mdlp(quanti)
+      
+      # On concatene les quanti et quali pour retrouver le DF originel discretise
+      df_disc$Disc.data <- cbind(df_disc$Disc.data, quali)
+      
+    } else if (parallel==TRUE) {
+      nb_cores <- detectCores()
+      cl <- makeCluster(nb_cores)
+      registerDoParallel(cl)
+      quanti_discret <- foreach(i=1:ncol(quanti), .combine="c", .export=c("discret", "mdlp")) %dopar% 
+        discret(quanti[,i], Y)
+      stopCluster(cl)
+      
+      df_discret <- df[1]
+      df_discret <- df_discret[-1]
+      cuts <- seq(2, length(quanti_discret), by=2)
+      for (i in cuts) {
+        cuts[i/2] <- quanti_discret[[i]]
+        df_discret <- cbind(df_discret, quanti_discret[[i-1]])
+      }
+      colnames(df_discret) <- colnames(quanti)
+      
+      df_disc <- c()
+      df_disc[["Disc.data"]] <- df_discret
+      df_disc[["cutp"]] <- cuts
+      
+      # On concatene les quanti et quali
+      df_disc$Disc.data <- cbind(df_disc$Disc.data, quali)
+      df_disc$Disc.data <- cbind(df_disc$Disc.data, Y)
+    }
     
-    # On concatene les quanti et quali pour retrouver le DF originel discretise
-    df_disc$Disc.data <- cbind(df_disc$Disc.data, quali)
     
-    # On met toutes les colonnes en Factor
-    #df <- as.data.frame(lapply(df, factor))
     
     # Table frequence variable a predire
     table_Y <- table(Y)
